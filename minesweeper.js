@@ -7,9 +7,10 @@ var total_height = 530;
 function Cell(){
 	this.mine = 0; 
 	this.flag = '';
+	this.hidden = true;
 	this.reveal = function(){
 		// useless?
-		// this.hidden = false;
+		this.hidden = false;
 	}
 	this.setMine = function(){
 		this.mine = Math.random() < 0.8 ? 0 : 1; // true or false, use randomizer function 
@@ -72,6 +73,7 @@ function theMain(){
 				$mineField.append('<tr class="row"></div>');
 				for (var j = 0; j < this.columns; j++){
 					this.plot[i][j] = new Cell();
+					this.plot[i][j].position = [i,j];
 				}
 			}
 			for (var j = 0; j < this.columns; j++){
@@ -106,11 +108,16 @@ function theMain(){
 			var myObj = this; 
 			this.plot.forEach(function(eachRow, i){
 				eachRow.forEach(function(eachCell, j){
+		 			
 		 			// positions of nearest mines
+
 					var rowNext = i + 1 < myObj.rows? i + 1: i;
 					var rowPrev = i - 1 >= 0 ? i - 1: i;
 					var columnNext = j + 1 < myObj.columns? j + 1: j;
 					var columnPrev = j - 1 >= 0? j - 1: j;
+					
+					// flaw !! Must check if cell exists. Then push its mine value to an accumulator
+
 					// add up the number of mines
 					var minesNearby =  
 					myObj.plot[rowNext][j].mine + 
@@ -125,6 +132,9 @@ function theMain(){
 					// update html minefield with numbers
 					eachCell.minesNearby = minesNearby;
 					$rows.eq(i).find('.column').eq(j).html(minesNearby);
+
+					// hide each cell too
+					// eachCell.hidden = true;
 				});
 			});
 		},
@@ -145,13 +155,79 @@ function theMain(){
 			// go to next node in queue, check neigbors, set hiddens = false, push to queue... 
 			// keep going until end of queue array
 
-			$clickedCell
-			// get index of cell
-			var i = $rows.index($clickedCell.parent());
-			var j = $rows.eq(i).find('.column').index($clickedCell);
-			this.plot[i][j].reveal();
-			$clickedCell.removeClass('hidden');
+			var coordinates = getCoordinatesOf($clickedCell);
+			var clickedCell = this.plot[coordinates[0]][coordinates[1]];
+			
+			// $clickedCell.removeClass('hidden');
+			// clickedCell.reveal();
 
+			var queue = [clickedCell];
+			var lengthChange = 1;
+			while (lengthChange !== 0){
+				var oldLength = queue.length;
+				for (var key in queue){
+					// get neighbors
+					var neighborMines = [];
+					var rowNext = queue[key].position[0]+1 < this.rows? queue[key].position[0]+1: queue[key].position[0];
+					var rowPrev = queue[key].position[0]-1 >= 0 ? queue[key].position[0]-1: queue[key].position[0];
+					var columnNext = queue[key].position[1]+1 < this.columns? queue[key].position[1]+1: queue[key].position[1];
+					var columnPrev = queue[key].position[1]-1 >= 0? queue[key].position[1]-1: queue[key].position[1];
+					neighborMines.push(this.plot[rowNext][queue[key].position[1]]);
+					neighborMines.push(this.plot[queue[key].position[0]][columnNext]);
+					neighborMines.push(this.plot[rowPrev][queue[key].position[1]]);
+					neighborMines.push(this.plot[queue[key].position[0]][columnPrev]);
+					
+					neighborMines.push(this.plot[rowNext][columnNext]);
+					neighborMines.push(this.plot[rowPrev][columnNext]);
+					neighborMines.push(this.plot[rowNext][columnPrev]);
+					neighborMines.push(this.plot[rowPrev][columnPrev]);
+
+					for (var i in neighborMines){
+						var neighborCoordinates = neighborMines[i].position;
+						if (neighborMines[i].mine === 0 && neighborMines[i].minesNearby === 0 && neighborMines[i].hidden === true){
+							
+							// reveal neighbor cell
+							neighborMines[i].reveal();
+							$rows.eq(neighborCoordinates[0]).find('.column').eq(neighborCoordinates[1]).html(0).removeClass('hidden');
+
+							// reveal neighbor's neighbor cells
+							var rowNext = neighborCoordinates[0]+1 < this.rows? neighborCoordinates[0]+1: neighborCoordinates[0];
+							var rowPrev = neighborCoordinates[0]-1 >= 0 ? neighborCoordinates[0]-1: neighborCoordinates[0];
+							var columnNext = neighborCoordinates[1]+1 < this.columns? neighborCoordinates[1]+1: neighborCoordinates[1];
+							var columnPrev = neighborCoordinates[1]-1 >= 0? neighborCoordinates[1]-1: neighborCoordinates[1];
+
+							var neighborsOfNeighbor = [];
+							neighborsOfNeighbor.push(this.plot[rowNext][neighborCoordinates[1]]);
+							neighborsOfNeighbor.push(this.plot[neighborCoordinates[0]][columnNext]);
+							neighborsOfNeighbor.push(this.plot[rowPrev][neighborCoordinates[1]]);
+							neighborsOfNeighbor.push(this.plot[neighborCoordinates[0]][columnPrev]);
+
+							neighborsOfNeighbor.push(this.plot[rowPrev][columnPrev]);
+							neighborsOfNeighbor.push(this.plot[rowPrev][columnNext]);
+							neighborsOfNeighbor.push(this.plot[rowNext][columnPrev]);
+							neighborsOfNeighbor.push(this.plot[rowNext][columnNext]);
+							
+							for (var j in neighborsOfNeighbor){
+								if(neighborsOfNeighbor[j].minesNearby !== 0){
+									neighborsOfNeighbor[j].reveal();
+									$rows.eq(neighborsOfNeighbor[j].position[0]).find('.column').eq(neighborsOfNeighbor[j].position[1]).html(neighborsOfNeighbor[j].minesNearby).removeClass('hidden');
+								}
+							}
+
+
+							queue.push(neighborMines[i]);
+						}
+						if(neighborMines[i].minesNearby !== 0){
+							neighborMines[i].reveal();
+							$rows.eq(neighborCoordinates[0]).find('.column').eq(neighborCoordinates[1]).html(neighborMines[i].minesNearby).removeClass('hidden');
+						}
+					}
+				}
+
+				// check length of queue to see if loop should be executed again
+				lengthChange = queue.length - oldLength;
+			}
+			
 			// NOT FINISHED YET
 		},
 		explode: function(){
@@ -177,13 +253,18 @@ function theMain(){
 			// get coordinates of clicked cell.  
 			var coordinatesOfCell = getCoordinatesOf($this);
 			var minesNearby = mineField.plot[coordinatesOfCell[0]][coordinatesOfCell[1]].minesNearby;
+			
+			// reveal cell
 			$this.html(minesNearby).removeClass('hidden');
-
+			mineField.plot[coordinatesOfCell[0]][coordinatesOfCell[1]].reveal();
 			// if it's a mine, change smiley face to dead face
 			if($this.hasClass('mine')){
 				$resetButton.addClass('dead');
 			}
 			else{
+				if(minesNearby === 0){
+					mineField.sweepField($this);
+				}
 				$resetButton.makeOhFace();
 			}
 		}
