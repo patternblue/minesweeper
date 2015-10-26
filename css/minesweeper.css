@@ -1,0 +1,64 @@
+header{
+	/*margin: 0 auto;*/
+	text-align: center;
+	margin: 14px;
+}
+#menu{
+	font-size: 26px;
+	/*text-align: center;*/
+}
+#mineField{
+	/*text-align: center;*/
+	margin: 0 auto;
+	background:#ddf0a8;
+}
+.column{
+	/*float: left;*/
+	margin: 0 auto;
+	background: #dfdfdf;
+	border-style: solid;
+	border-color: #000000;
+	border-width: 3px;
+	/*border-radius: 0;*/
+	color: rgba(14, 14, 14, 255);
+	font-size: 20px;
+	text-align: center;
+}
+.mine{
+	background: #aa0000;
+	font-size: 0;
+	border-radius: 41px;
+	/*color: rgba(0, 0, 0, 0);*/
+}
+.hidden{
+	/*display: none;*/
+	background: rgba(128,128,128, 255);
+	/*color: rgba(0, 0, 0, 255);*/
+	border-radius: 0;
+	font-size: 0;
+}
+.hidden.flag{
+	/*background: rgba(0,200,0, 255);*/
+	color: rgba(255, 128, 0, 255);
+	font-size: 20px;
+}
+#resetButton{
+	width: 30px;
+	height: 30px;
+	background-image: url("../img/faces.jpg");
+	background-size: 60px 60px;
+	background-position: 0px 0px;
+	margin: 0 auto;
+	/*text-align: center;*/
+	/*border-radius: 26px;*/
+}
+
+#resetButton.win{
+	background-position: 0 -29px;
+}
+#resetButton.dead{
+	background-position: -29px -29px;
+}
+#resetButton.ohFace{
+	background-position: -29px 0;
+}
