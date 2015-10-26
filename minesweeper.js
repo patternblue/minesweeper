@@ -8,7 +8,8 @@ function Cell(){
 	this.mine = 0; 
 	this.flag = '';
 	this.reveal = function(){
-		this.hidden = false;
+		// useless?
+		// this.hidden = false;
 	}
 	this.setMine = function(){
 		this.mine = Math.random() < 0.8 ? 0 : 1; // true or false, use randomizer function 
@@ -21,8 +22,20 @@ function Cell(){
 
 // Main function
 function theMain(){
+
+	// get html elements, turn them into jQuery objects
 	var $mineField = $('#mineField');
 	var $resetButton = $('#resetButton');
+	var	$rows;
+
+	// get the index's of the clicked cell
+	function getCoordinatesOf(clickedCell){
+		var i = $rows.index(clickedCell.parent());
+		var j = $rows.eq(i).find('.column').index(clickedCell);
+		return [i,j];
+	}
+
+	// Reset button, make the :o face for 100ms
 	$resetButton.makeOhFace = function(){
 		this.addClass('ohFace');
 		setTimeout(function(){
@@ -30,11 +43,16 @@ function theMain(){
 			console.log(this);
 		}.bind(this), 100);
 	}
-	var	$rows;
+
+	// my minefield object!!!
 	var mineField = {
+		// 2D model array of a mineField. Each element is a Cell object 
 		plot: [],
+		// size of the plot/grid
 		rows: 20,
 		columns: 20,
+
+		//// Methods here:
 
 		resetGame: function(){
 			this.renderCells();
@@ -43,9 +61,11 @@ function theMain(){
 			this.hideAllCells();
 			$resetButton.removeClass();
 		},
+
 		// renders empty cells onto minefield
 		renderCells: function(){
 			$mineField.empty();
+
 			// render my plot as well as the html minefield
 			for (var i = 0; i < this.rows; i++){
 				this.plot[i] = [];
@@ -81,7 +101,7 @@ function theMain(){
 			}); 
 		},
 
-		// plant numbers for nearby mines
+		// plant numbers in each cell for the amount of nearby mines
 		plantNumbers: function(){
 			var myObj = this; 
 			this.plot.forEach(function(eachRow, i){
@@ -101,38 +121,50 @@ function theMain(){
 					myObj.plot[rowPrev][columnNext].mine +
 					myObj.plot[rowNext][columnPrev].mine +
 					myObj.plot[rowNext][columnNext].mine;
+
 					// update html minefield with numbers
 					eachCell.minesNearby = minesNearby;
 					$rows.eq(i).find('.column').eq(j).html(minesNearby);
 				});
 			});
 		},
+
 		hideAllCells: function(){
 			$mineField.find('.column').addClass('hidden');
 		},
+
+		// Sweep the field to reveal cells with the number 0
 		sweepField: function($clickedCell){
-			// sweepField (recursively reveal nearby cells without(?) mines nearby)
+			// NOT FINISHED YET
+			// use Breadth-first search!!
 
-			// use Breadth-first search here!!
-
+			// algo:
 			// set clicked cell's hidden = false, push that cell into queue array
 			// go into that node, check neighbor cells for mine === 0 && hidden === true && minesNearby === 0 
 			// set those hidden = false, push those cells into queue
 			// go to next node in queue, check neigbors, set hiddens = false, push to queue... 
 			// keep going until end of queue array
+
 			$clickedCell
 			// get index of cell
 			var i = $rows.index($clickedCell.parent());
 			var j = $rows.eq(i).find('.column').index($clickedCell);
 			this.plot[i][j].reveal();
 			$clickedCell.removeClass('hidden');
-			// not finished yet
+
+			// NOT FINISHED YET
 		},
 		explode: function(){
-
+			// what to do?
 		}
 	};
+
+	// Start game
 	mineField.resetGame();
+
+
+
+	//// Event Listeners:
 
 	// click to reveal cell
 	$mineField.on('click', '.column', function(){
@@ -141,10 +173,10 @@ function theMain(){
 
 		//check if flag or dead or win or hidden
 		if(!$this.hasClass('flag') && !$resetButton.hasClass('dead') && !$resetButton.hasClass('win') && $this.hasClass('hidden')){
-			// get index
-			var i = $rows.index($this.parent());
-			var j = $rows.eq(i).find('.column').index($this);
-			var minesNearby = mineField.plot[i][j].minesNearby;
+			
+			// get coordinates of clicked cell.  
+			var coordinatesOfCell = getCoordinatesOf($this);
+			var minesNearby = mineField.plot[coordinatesOfCell[0]][coordinatesOfCell[1]].minesNearby;
 			$this.html(minesNearby).removeClass('hidden');
 
 			// if it's a mine, change smiley face to dead face
@@ -161,27 +193,28 @@ function theMain(){
 	$mineField.on('mousedown', '.column', function(event){
 		if(event.which === 3 && !$resetButton.hasClass('dead')){
 			var $this = $(this);
-			// get index
-			var i = $rows.index($this.parent());
-			var j = $rows.eq(i).find('.column').index($this);
+			var coordinatesOfCell = getCoordinatesOf($this);
 			var marks = ['', 'x', '?'];
-			var nextFlag = marks.indexOf(mineField.plot[i][j].flag) + 1;
-			if(nextFlag >= marks.length){
-				nextFlag = 0;
+			var currentCell = mineField.plot[coordinatesOfCell[0]][coordinatesOfCell[1]];
+			var currentFlag = marks.indexOf(currentCell.flag);
+			currentFlag++;
+			if(currentFlag >= marks.length){
+				currentFlag = 0;
 			}
-			mineField.plot[i][j].flag = marks[nextFlag];
+			currentCell.flag = marks[currentFlag];
 
 			// next mark is nothing. remove flag and update html with mines number
-			if(marks[nextFlag] === ''){
-				var minesNearby = mineField.plot[i][j].minesNearby;
+			if(marks[currentFlag] === ''){
+				var minesNearby = currentCell.minesNearby;
 				$this.html(minesNearby);
 				$this.removeClass('flag');
 			}else if($this.hasClass('hidden')){
-				$this.html(marks[nextFlag]);
+				$this.html(marks[currentFlag]);
 				$this.addClass('flag');
 			}
 		}
 	});
 
+	// click reset button to reset game
 	$resetButton.on('click', mineField.resetGame.bind(mineField));	
 };
