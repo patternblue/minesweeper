@@ -1,301 +1,418 @@
 $(document).ready(theMain);
 
-var total_width = 530;
-var total_height = 530;
+var total_width = 900;
+var total_height = 480;
 
+// MODEL
+// Reset, Cell, Minefield
+
+// Reset button Model
+function Reset(){
+	this.state = ''; // '', ohFace, dead, win
+	this.changeResetButtonState = function(stateString){
+		this.state = stateString;
+	}
+}
 // Cell class
-function Cell(){
-	this.mine = 0; 
-	this.flag = '';
-	this.hidden = true;
-	this.reveal = function(){
-		// useless?
-		this.hidden = false;
-	}
+function Cell(rowCoord, columnCoord){
+	this.contents = 0; // 0, 1, 2, 3, 4, 5, 6, 7, 8, x
+	this.state = 'hidden'; // hidden, flag, question, revealed
+	this.coordinates = [rowCoord, columnCoord];
+
+	// methods
+
+	// randomly places a mine (x) in a cell
 	this.setMine = function(){
-		this.mine = Math.random() < 0.8 ? 0 : 1; // true or false, use randomizer function 
-		return this;
+		this.contents = Math.random() < 0.8 ? 0 : 'x'; 
 	}
-	this.plantFlag = function(){
-		// useless?
+	this.changeState = function(stateString){
+		this.state = stateString;
 	}
 }
 
-// Main function
-function theMain(){
+function Timer(){
+	this.count = 0;
+	this.counter;
+	// start timer method
+	this.startTimer = function(cbUpdate$Timer){
+		this.count = 0;
+		cbUpdate$Timer(this.count);
+		var timerObj = this;
+		this.counter = setInterval(function(){
+			timerObj.count++;
+			cbUpdate$Timer(timerObj.count);
+		}, 1000);
+	}
 
-	// get html elements, turn them into jQuery objects
-	var $mineField = $('#mineField');
-	var $resetButton = $('#resetButton');
-	var	$rows;
+	this.stopTimer = function(){
+		clearInterval(this.counter);
+	}
+}
+function MineField(){
+	//props
+	this.plot = [];
+	this.rows = 20;
+	this.columns = 30;
 
-	// get the index's of the clicked cell
-	function getCoordinatesOf(clickedCell){
-		var i = $rows.index(clickedCell.parent());
-		var j = $rows.eq(i).find('.column').index(clickedCell);
+	//methods
+
+	// reset the playing field
+	this.resetPlot = function(){
+		this.createPlot();
+		this.plantMines();
+		this.plantNumbers();
+	};
+
+	// make my 2D plot of Cell objects
+	this.createPlot = function(){
+		for (var i = 0; i < this.rows; i++){
+			this.plot[i] = [];
+			for (var j = 0; j < this.columns; j++){
+				this.plot[i][j] = new Cell(i,j);
+			}
+		}
+	}
+
+	// randomly plant mines across the minefield
+	this.plantMines = function(){
+		this.plot.forEach(function(eachRow){
+			eachRow.forEach(function(eachCell){
+				eachCell.setMine();
+			});
+		}); 
+	}
+
+	// get the neighbors of a specific cell, return an array
+	this.getNeighbors = function(cell){
+		var arrayOfNeighbors = [];
+		var rowNext = cell.coordinates[0] + 1;
+		var rowPrev = cell.coordinates[0] - 1;
+		var columnNext = cell.coordinates[1] + 1;
+		var columnPrev = cell.coordinates[1] - 1;
+		if (rowNext >= 0 && rowNext < this.rows) arrayOfNeighbors.push(this.plot[rowNext][cell.coordinates[1]]);
+		if (rowPrev >= 0 && rowPrev < this.rows) arrayOfNeighbors.push(this.plot[rowPrev][cell.coordinates[1]]);
+		if (columnNext >= 0 && columnNext < this.columns) arrayOfNeighbors.push(this.plot[cell.coordinates[0]][columnNext]);
+		if (columnPrev >= 0 && columnPrev < this.columns) arrayOfNeighbors.push(this.plot[cell.coordinates[0]][columnPrev]);
+		if (rowPrev >= 0  && rowPrev < this.rows && columnPrev >= 0 && columnPrev < this.columns) arrayOfNeighbors.push(this.plot[rowPrev][columnPrev]);
+		if (rowPrev >= 0  && rowPrev < this.rows && columnNext >= 0 && columnNext < this.columns) arrayOfNeighbors.push(this.plot[rowPrev][columnNext]);
+		if (rowNext >= 0  && rowNext < this.rows && columnPrev >= 0 && columnPrev < this.columns) arrayOfNeighbors.push(this.plot[rowNext][columnPrev]);
+		if (rowNext >= 0  && rowNext < this.rows && columnNext >= 0 && columnNext < this.columns) arrayOfNeighbors.push(this.plot[rowNext][columnNext]);
+		return arrayOfNeighbors;
+	}
+
+	// plant numbers in each cell for the amount of nearby mines
+	this.plantNumbers = function(){
+		var myFieldObj = this; 
+		this.plot.forEach(function(eachRow){
+			eachRow.forEach(function(eachCell){
+				// check if current cell is not a mine in order to put number into its contents
+				if(eachCell.contents !== 'x'){
+		 			// add up the number of mines surrounding the cell
+					var neighborsOfEachCell = myFieldObj.getNeighbors(eachCell);
+					var minesNearby = 0;
+					for (var key in neighborsOfEachCell){
+
+						if (neighborsOfEachCell[key].contents === 'x'){
+							minesNearby++;
+						}
+					}
+
+					// update cell contents with the number of mines nearby
+					eachCell.contents = minesNearby;
+				}
+			});
+		});
+	}
+
+	// Model minefield's method to handle left click event
+	this.leftClickCell = function(cell, resetButton, cbUpdate$CellState, cbUpdate$CellContents, cbUpdate$ResetButtonState, cbStopTimer){
+		// console.log(cell.state);
+		if(cell.state === 'hidden' && resetButton.state !== 'dead' && resetButton.state !== 'win'){
+			// if it's a mine, make reset button 'dead'
+			if(cell.contents === 'x'){
+				cell.changeState('revealed');
+				resetButton.state = 'dead';
+				for(var i in this.plot){
+					for (var j in this.plot[i]){
+						if(this.plot[i][j].contents === 'x'){
+							this.plot[i][j].changeState('revealed');
+							cbUpdate$CellState(this.plot[i][j]);
+							cbUpdate$CellContents(this.plot[i][j]);
+						}
+					}
+				}
+			}else if(cell.contents === 0){
+				// sweep if 0
+				this.sweepField(cell, cbUpdate$CellState, cbUpdate$CellContents);
+			}else{
+				// reveal if 0
+				cell.changeState('revealed');
+				cbUpdate$CellState(cell);
+				cbUpdate$CellContents(cell);
+			}
+
+			if (resetButton.state !== 'dead'){
+				var won = true;
+				// var myMineFieldObj = this;
+				var checkIfWon = function(){
+					// console.log('ran');
+					for(var i in this.plot){
+						// console.log('ran');
+						for (var j in this.plot[i]){
+							// must reveal all non-mines in order to win
+							// console.log('ran');
+							if(this.plot[i][j].state !== 'revealed' && this.plot[i][j].contents !== 'x'){
+								console.log(j);
+								return false;
+							}
+						}
+					}
+					return true;
+				}
+				won = checkIfWon.call(this);
+				if(won){
+					resetButton.state = 'win';
+				}
+			}
+			// check all cells to determine if game has won
+
+
+
+			// update reset button display after all cells have been rendered
+			// update timer (stop if dead or win)
+			if (resetButton.state === 'dead' || resetButton.state === 'win'){
+				cbStopTimer();
+			}
+
+			cbUpdate$ResetButtonState(resetButton.state);
+		}
+	}
+	// Sweep algorithm for clearing cells with '0' 
+	this.sweepField = function(cell, cbUpdate$CellState, cbUpdate$CellContents){
+		// algo: Breadth-first search 
+		// push clicked cell into queue array, reveal it
+		// get all neighbors into neighborArray with contents !== x && state === hidden
+		// push only those neighbors with contents === 0 into queue
+		// reveal current node cell as well as all neighbors in neighborArray 
+		// go to next node in queue
+		// ... until end of queue
+		var queueOfCells = [cell];
+		for (var i = 0; i < queueOfCells.length; i++){
+			// get all neighbors into neighborArray with contents !== x && state === hidden
+			var neighbors = this.getNeighbors(queueOfCells[i]);
+			for (var index = neighbors.length - 1; index >= 0; index--){
+				if (!(neighbors[index].state === 'hidden' && neighbors[index].contents !== 'x')){ 
+					neighbors.splice(index, 1);
+				}
+			}
+			// push only neighbors with contents === 0 && state === hidden into queue
+			// reveal all neighbors in neighborArray 
+			for (var index in neighbors){
+				if(neighbors[index].contents === 0){
+					queueOfCells.push(neighbors[index]);
+				}
+				neighbors[index].changeState('revealed');
+				cbUpdate$CellState(neighbors[index]);
+				cbUpdate$CellContents(neighbors[index]);
+			}
+			queueOfCells[i].changeState('revealed');
+			cbUpdate$CellState(queueOfCells[i]);
+			cbUpdate$CellContents(queueOfCells[i]);
+		}
+	}
+	// Model minefield's method to handle right click event
+	this.rightClickCell = function(cell, resetButton, cbUpdate$CellState, cbUpdate$CellContents){
+		console.log(cell.state + ' ' + cell.contents);
+		if(resetButton.state !== 'dead' && resetButton.state !== 'win' && cell.state !== 'revealed'){
+			switch(cell.state){
+				case 'hidden': 
+					cell.state = 'flag';
+					break;
+				case 'flag':
+					cell.state = 'question';
+					break;
+				case 'question':
+					cell.state = 'hidden';
+					break;
+				default:
+			}
+			cbUpdate$CellState(cell);
+			cbUpdate$CellContents(cell);
+		}
+	}
+}
+
+// VIEW
+function View(mineFieldString, resetButtonString, timerString){
+	// get jQuery objects from elements selected from the document
+	this.$mineField = $(mineFieldString);
+	this.$resetButton = $(resetButtonString);
+	this.$timer = $(timerString);
+
+	// methods for updating display
+	this.update$CellState = function(cell){
+		var $cell = this.getElementByCoordinates(cell.coordinates);
+		$cell.removeClass().addClass('column' + ' ' + cell.state);
+	}
+	this.update$CellContents = function(cell){
+		var $cell = this.getElementByCoordinates(cell.coordinates);
+		switch(cell.state){
+			case 'flag':
+				$cell.html('!');
+				break;
+			case 'question':
+				$cell.html('?');
+				break;
+			case 'hidden':
+				$cell.html('');
+				break;
+			default:
+				$cell.html(cell.contents);
+				if($cell.html() === 'x'){
+					$cell.addClass('mine');
+				}
+		}
+	}
+
+	// get an element using given coordinates
+	this.getElementByCoordinates = function(coord){
+		return this.$mineField.find('.row').eq(coord[0]).find('.column').eq(coord[1]);
+	}
+
+	// get the coordinates of an element (e.g. a clicked cell)
+	this.getCoordinatesOfElement = function($cell){
+		var i = this.$mineField.find('.row').index($cell.parent());
+		var j = this.$mineField.find('.row').eq(i).find('.column').index($cell);
 		return [i,j];
 	}
 
-	// Reset button, make the :o face for 100ms
-	$resetButton.makeOhFace = function(){
-		this.addClass('ohFace');
-		setTimeout(function(){
-			this.removeClass();
-			console.log(this);
-		}.bind(this), 100);
+	// display the playing field
+	this.renderPlot = function(rows, columns){
+		this.$mineField.empty();
+		for (var i = 0; i < rows; i++){
+			// append row
+			this.$mineField.append('<tr class="row"></tr>');
+
+			// append columns to current row 
+			var $currentRow = this.$mineField.find('.row').filter(':last');
+			for (var j = 0; j < columns; j++){
+				$currentRow.append('<td class="column hidden"></td>');
+			}
+		}
+		var $columns = this.$mineField.find('.column');
+
+		// size the field
+		$columns.css({
+			'width': total_width/columns,
+			'height': total_height/rows,
+			'font-size':0.037*(total_width/columns) + 'vw'
+			// 'line-height':'auto'
+		});
 	}
 
-	// my minefield object!!!
-	var mineField = {
-		// 2D model array of a mineField. Each element is a Cell object 
-		plot: [],
-		// size of the plot/grid
-		rows: 20,
-		columns: 20,
+	this.update$ResetButtonState = function(className){
+		this.$resetButton.removeClass().addClass('ohFace');
+		var myViewObj = this;
+		setTimeout(function(){
+			myViewObj.$resetButton.removeClass().addClass(className);
+		}, 100);
+	}
+	this.update$Timer = function(currentCount){
+		this.$timer.html(currentCount);
+	}
+}
 
-		//// Methods here:
+// // a controller is where the model and the view are used together.
+function Controller(mineField, resetButton, timer, view){
 
-		resetGame: function(){
-			this.renderCells();
-			this.plantMines();
-			this.plantNumbers();
-			this.hideAllCells();
-			$resetButton.removeClass();
-		},
+	// model objects:
+	this.mineField = mineField;
+	this.resetButton = resetButton;
+	this.timer = timer;
+	// view object:
+	this.view = view;
 
-		// renders empty cells onto minefield
-		renderCells: function(){
-			$mineField.empty();
+	this.clickReset = function(){
+		// model
+		this.mineField.resetPlot();
+		this.resetButton.changeResetButtonState('');
+		// view 
+		this.view.renderPlot(this.mineField.rows, this.mineField.columns);
+		this.view.update$ResetButtonState('');
 
-			// render my plot as well as the html minefield
-			for (var i = 0; i < this.rows; i++){
-				this.plot[i] = [];
-				$mineField.append('<tr class="row"></div>');
-				for (var j = 0; j < this.columns; j++){
-					this.plot[i][j] = new Cell();
-					this.plot[i][j].position = [i,j];
-				}
-			}
-			for (var j = 0; j < this.columns; j++){
-				$rows = $mineField.find('.row');
-				$rows.append('<td class="column"></div>');
-			};
-			// set css styling for width and height of each cell
-			$mineField.find('.column').css({
-				'width': total_width/this.columns,
-				'height': total_height/this.rows
-			});
-		},
+		// timer: model and view
+		this.timer.stopTimer();
+		var cb = this.view.update$Timer.bind(this.view);
+		this.timer.startTimer(cb);
+		// this.view.update$Timer();
+	}
 
-		// plant mines across the minefield
-		plantMines: function(){
-			this.plot.forEach(function(eachRow, i){
-				eachRow.forEach(function(eachCell, j){
-					var $targetCell = $rows.eq(i).find('.column').eq(j);
-					eachCell.setMine();
-					if(eachCell.mine){
-						$targetCell.removeClass('mine').addClass('mine');
-					}
-					else{
-						$targetCell.removeClass('mine');
-					}					
-				});
-			}); 
-		},
+	this.leftClickCell = function($clickedCell){
+		// get model of clicked cell
+		var coord = this.view.getCoordinatesOfElement($clickedCell);
+		var clickedCell = this.mineField.plot[coord[0]][coord[1]];
 
-		// plant numbers in each cell for the amount of nearby mines
-		plantNumbers: function(){
-			var myObj = this; 
-			this.plot.forEach(function(eachRow, i){
-				eachRow.forEach(function(eachCell, j){
-		 			
-		 			// positions of nearest mines
+		// model's left click function
+		// view's callbacks passed into model in order to display model changes
+		var cb1 = this.view.update$CellState.bind(this.view);
+		var cb2 = this.view.update$CellContents.bind(this.view);
+		var cb3 = this.view.update$ResetButtonState.bind(this.view);
+		var cb4 = this.timer.stopTimer.bind(this.timer);
+		this.mineField.leftClickCell(clickedCell, this.resetButton, cb1, cb2, cb3, cb4);
 
-					var rowNext = i + 1 < myObj.rows? i + 1: i;
-					var rowPrev = i - 1 >= 0 ? i - 1: i;
-					var columnNext = j + 1 < myObj.columns? j + 1: j;
-					var columnPrev = j - 1 >= 0? j - 1: j;
-					
-					// flaw !! Must check if cell exists. Then push its mine value to an accumulator
+	}
+	this.rightClickCell = function($clickedCell){
+		// get model of clicked cell
+		var coord = this.view.getCoordinatesOfElement($clickedCell);
+		var clickedCell = this.mineField.plot[coord[0]][coord[1]];
 
-					// add up the number of mines
-					var minesNearby =  
-					myObj.plot[rowNext][j].mine + 
-					myObj.plot[rowPrev][j].mine +
-					myObj.plot[i][columnNext].mine +
-					myObj.plot[i][columnPrev].mine +
-					myObj.plot[rowPrev][columnPrev].mine +
-					myObj.plot[rowPrev][columnNext].mine +
-					myObj.plot[rowNext][columnPrev].mine +
-					myObj.plot[rowNext][columnNext].mine;
+		// model's right click function
+		// view's callbacks passed into model in order to display model changes
+		var cb1 = this.view.update$CellState.bind(this.view);
+		var cb2 = this.view.update$CellContents.bind(this.view);
+		this.mineField.rightClickCell(clickedCell, this.resetButton, cb1, cb2);
+	}
+}
 
-					// update html minefield with numbers
-					eachCell.minesNearby = minesNearby;
-					$rows.eq(i).find('.column').eq(j).html(minesNearby);
+// Main game
+function theMain(){
+	// Initialize objects
+	var myMineField = new MineField();
+	var myResetButton = new Reset();
+	var myTimer = new Timer();
+	var myDisplay = new View('#mineField', '#resetButton', '#timer');
+	var myController = new Controller(myMineField, myResetButton, myTimer, myDisplay);
 
-					// hide each cell too
-					// eachCell.hidden = true;
-				});
-			});
-		},
+	var getRowsFromPlayer = prompt('How many rows do you want the field to have?', 20);
+	var getColumnsFromPlayer = prompt('How many columns do you want the field to have?', 30);
+	myMineField.rows = parseInt(getRowsFromPlayer);
+	myMineField.columns = parseInt(getColumnsFromPlayer);
 
-		hideAllCells: function(){
-			$mineField.find('.column').addClass('hidden');
-		},
+	myController.clickReset();
 
-		// Sweep the field to reveal cells with the number 0
-		sweepField: function($clickedCell){
-			// NOT FINISHED YET
-			// use Breadth-first search!!
-
-			// algo:
-			// set clicked cell's hidden = false, push that cell into queue array
-			// go into that node, check neighbor cells for mine === 0 && hidden === true && minesNearby === 0 
-			// set those hidden = false, push those cells into queue
-			// go to next node in queue, check neigbors, set hiddens = false, push to queue... 
-			// keep going until end of queue array
-
-			var coordinates = getCoordinatesOf($clickedCell);
-			var clickedCell = this.plot[coordinates[0]][coordinates[1]];
-			
-			// $clickedCell.removeClass('hidden');
-			// clickedCell.reveal();
-
-			var queue = [clickedCell];
-			var lengthChange = 1;
-			while (lengthChange !== 0){
-				var oldLength = queue.length;
-				for (var key in queue){
-					// get neighbors
-					var neighborMines = [];
-					var rowNext = queue[key].position[0]+1 < this.rows? queue[key].position[0]+1: queue[key].position[0];
-					var rowPrev = queue[key].position[0]-1 >= 0 ? queue[key].position[0]-1: queue[key].position[0];
-					var columnNext = queue[key].position[1]+1 < this.columns? queue[key].position[1]+1: queue[key].position[1];
-					var columnPrev = queue[key].position[1]-1 >= 0? queue[key].position[1]-1: queue[key].position[1];
-					neighborMines.push(this.plot[rowNext][queue[key].position[1]]);
-					neighborMines.push(this.plot[queue[key].position[0]][columnNext]);
-					neighborMines.push(this.plot[rowPrev][queue[key].position[1]]);
-					neighborMines.push(this.plot[queue[key].position[0]][columnPrev]);
-					
-					neighborMines.push(this.plot[rowNext][columnNext]);
-					neighborMines.push(this.plot[rowPrev][columnNext]);
-					neighborMines.push(this.plot[rowNext][columnPrev]);
-					neighborMines.push(this.plot[rowPrev][columnPrev]);
-
-					for (var i in neighborMines){
-						var neighborCoordinates = neighborMines[i].position;
-						if (neighborMines[i].mine === 0 && neighborMines[i].minesNearby === 0 && neighborMines[i].hidden === true){
-							
-							// reveal neighbor cell
-							neighborMines[i].reveal();
-							$rows.eq(neighborCoordinates[0]).find('.column').eq(neighborCoordinates[1]).html(0).removeClass('hidden');
-
-							// reveal neighbor's neighbor cells
-							var rowNext = neighborCoordinates[0]+1 < this.rows? neighborCoordinates[0]+1: neighborCoordinates[0];
-							var rowPrev = neighborCoordinates[0]-1 >= 0 ? neighborCoordinates[0]-1: neighborCoordinates[0];
-							var columnNext = neighborCoordinates[1]+1 < this.columns? neighborCoordinates[1]+1: neighborCoordinates[1];
-							var columnPrev = neighborCoordinates[1]-1 >= 0? neighborCoordinates[1]-1: neighborCoordinates[1];
-
-							var neighborsOfNeighbor = [];
-							neighborsOfNeighbor.push(this.plot[rowNext][neighborCoordinates[1]]);
-							neighborsOfNeighbor.push(this.plot[neighborCoordinates[0]][columnNext]);
-							neighborsOfNeighbor.push(this.plot[rowPrev][neighborCoordinates[1]]);
-							neighborsOfNeighbor.push(this.plot[neighborCoordinates[0]][columnPrev]);
-
-							neighborsOfNeighbor.push(this.plot[rowPrev][columnPrev]);
-							neighborsOfNeighbor.push(this.plot[rowPrev][columnNext]);
-							neighborsOfNeighbor.push(this.plot[rowNext][columnPrev]);
-							neighborsOfNeighbor.push(this.plot[rowNext][columnNext]);
-							
-							for (var j in neighborsOfNeighbor){
-								if(neighborsOfNeighbor[j].minesNearby !== 0){
-									neighborsOfNeighbor[j].reveal();
-									$rows.eq(neighborsOfNeighbor[j].position[0]).find('.column').eq(neighborsOfNeighbor[j].position[1]).html(neighborsOfNeighbor[j].minesNearby).removeClass('hidden');
-								}
-							}
-
-
-							queue.push(neighborMines[i]);
-						}
-						if(neighborMines[i].minesNearby !== 0){
-							neighborMines[i].reveal();
-							$rows.eq(neighborCoordinates[0]).find('.column').eq(neighborCoordinates[1]).html(neighborMines[i].minesNearby).removeClass('hidden');
-						}
-					}
-				}
-
-				// check length of queue to see if loop should be executed again
-				lengthChange = queue.length - oldLength;
-			}
-			
-			// NOT FINISHED YET
-		},
-		explode: function(){
-			// what to do?
-		}
-	};
-
-	// Start game
-	mineField.resetGame();
-
-
-
+	// timer
+	// var count = 0;
+	// myCounter = setInterval(function(){
+	// 	count++;
+	// 	myDisplay.update$Timer(count);
+	// }, 1000);
 	//// Event Listeners:
 
-	// click to reveal cell
-	$mineField.on('click', '.column', function(){
-
+	// left click cell 
+	myDisplay.$mineField.on('click', '.column', function(){
 		var $this = $(this);
-
-		//check if flag or dead or win or hidden
-		if(!$this.hasClass('flag') && !$resetButton.hasClass('dead') && !$resetButton.hasClass('win') && $this.hasClass('hidden')){
-			
-			// get coordinates of clicked cell.  
-			var coordinatesOfCell = getCoordinatesOf($this);
-			var minesNearby = mineField.plot[coordinatesOfCell[0]][coordinatesOfCell[1]].minesNearby;
-			
-			// reveal cell
-			$this.html(minesNearby).removeClass('hidden');
-			mineField.plot[coordinatesOfCell[0]][coordinatesOfCell[1]].reveal();
-			// if it's a mine, change smiley face to dead face
-			if($this.hasClass('mine')){
-				$resetButton.addClass('dead');
-			}
-			else{
-				if(minesNearby === 0){
-					mineField.sweepField($this);
-				}
-				$resetButton.makeOhFace();
-			}
-		}
+		myController.leftClickCell.call(myController, $this);
 	});
 
-	// right click to set flag
-	$mineField.on('mousedown', '.column', function(event){
-		if(event.which === 3 && !$resetButton.hasClass('dead')){
+	// right click on a cell
+	myDisplay.$mineField.on('mousedown', '.column', function(event){
+		// check if event is a right click
+		if(event.which === 3){
 			var $this = $(this);
-			var coordinatesOfCell = getCoordinatesOf($this);
-			var marks = ['', 'x', '?'];
-			var currentCell = mineField.plot[coordinatesOfCell[0]][coordinatesOfCell[1]];
-			var currentFlag = marks.indexOf(currentCell.flag);
-			currentFlag++;
-			if(currentFlag >= marks.length){
-				currentFlag = 0;
-			}
-			currentCell.flag = marks[currentFlag];
-
-			// next mark is nothing. remove flag and update html with mines number
-			if(marks[currentFlag] === ''){
-				var minesNearby = currentCell.minesNearby;
-				$this.html(minesNearby);
-				$this.removeClass('flag');
-			}else if($this.hasClass('hidden')){
-				$this.html(marks[currentFlag]);
-				$this.addClass('flag');
-			}
+			myController.rightClickCell.call(myController, $this);
 		}
 	});
 
 	// click reset button to reset game
-	$resetButton.on('click', mineField.resetGame.bind(mineField));	
-};
+	myDisplay.$resetButton.on('click', myController.clickReset.bind(myController));
+}

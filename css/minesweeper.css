@@ -1,46 +1,50 @@
+body{
+	/*background: #99bb33;*/
+}
+#container{
+	height: 100%;
+}
 header{
-	/*margin: 0 auto;*/
 	text-align: center;
-	margin: 14px;
+	padding: 5px;
 }
 #menu{
 	font-size: 26px;
-	/*text-align: center;*/
+}
+#mineFieldContainer{
+	margin: 0 auto;
+	padding: 5px;
+	background: #99bb33;
 }
 #mineField{
-	/*text-align: center;*/
-	margin: 0 auto;
-	background:#ddf0a8;
+	/*background: #bb9933;*/
 }
 .column{
-	/*float: left;*/
+	/*overflow: hidden;*/
 	margin: 0 auto;
 	background: #dfdfdf;
 	border-style: solid;
-	border-color: #000000;
-	border-width: 3px;
-	/*border-radius: 0;*/
-	color: rgba(14, 14, 14, 255);
-	font-size: 20px;
+	border-color: #333333;
+	border-width: 2px;
+	border-radius: 30px;
+	color: rgba(0, 0, 0, 255);
+	/*font-size: 20px;*/
 	text-align: center;
+	text-decoration: bold;
 }
 .mine{
-	background: #aa0000;
+	background: #ff0000;
 	font-size: 0;
-	border-radius: 41px;
-	/*color: rgba(0, 0, 0, 0);*/
 }
 .hidden{
-	/*display: none;*/
 	background: rgba(128,128,128, 255);
-	/*color: rgba(0, 0, 0, 255);*/
-	border-radius: 0;
-	font-size: 0;
 }
-.hidden.flag{
-	/*background: rgba(0,200,0, 255);*/
-	color: rgba(255, 128, 0, 255);
-	font-size: 20px;
+.flag, .question{
+	background: rgba(128,128,128, 255);
+	color: #fedd77;
+	text-decoration: bold;
+	/*border-radius: 0;*/
+	/*font-size: 20px;*/
 }
 #resetButton{
 	width: 30px;
@@ -49,8 +53,6 @@ header{
 	background-size: 60px 60px;
 	background-position: 0px 0px;
 	margin: 0 auto;
-	/*text-align: center;*/
-	/*border-radius: 26px;*/
 }
 
 #resetButton.win{
@@ -61,4 +63,16 @@ header{
 }
 #resetButton.ohFace{
 	background-position: -29px 0;
+		color: rgba(255, 128, 0, 255);
+		background-color: #000000;
+}
+#timer{
+	/*float: right;*/
+	text-align: center;
+	width: 128px;
+	height: 30px;
+	color: #ffffff;
+	background: #d76383;
+	background-size: 400px 60px;
+	margin: 0 auto;
 }
