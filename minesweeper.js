@@ -23,7 +23,7 @@ function Cell(rowCoord, columnCoord){
 
 	// randomly places a mine (x) in a cell
 	this.setMine = function(){
-		this.contents = Math.random() < 0.8 ? 0 : 'x'; 
+		this.contents = Math.random() < 0.87 ? 0 : 'x'; 
 	}
 	this.changeState = function(stateString){
 		this.state = stateString;
@@ -89,6 +89,7 @@ function MineField(){
 		var rowPrev = cell.coordinates[0] - 1;
 		var columnNext = cell.coordinates[1] + 1;
 		var columnPrev = cell.coordinates[1] - 1;
+		// check if out of bounds
 		if (rowNext >= 0 && rowNext < this.rows) arrayOfNeighbors.push(this.plot[rowNext][cell.coordinates[1]]);
 		if (rowPrev >= 0 && rowPrev < this.rows) arrayOfNeighbors.push(this.plot[rowPrev][cell.coordinates[1]]);
 		if (columnNext >= 0 && columnNext < this.columns) arrayOfNeighbors.push(this.plot[cell.coordinates[0]][columnNext]);
@@ -116,7 +117,6 @@ function MineField(){
 							minesNearby++;
 						}
 					}
-
 					// update cell contents with the number of mines nearby
 					eachCell.contents = minesNearby;
 				}
@@ -126,7 +126,6 @@ function MineField(){
 
 	// Model minefield's method to handle left click event
 	this.leftClickCell = function(cell, resetButton, cbUpdate$CellState, cbUpdate$CellContents, cbUpdate$ResetButtonState, cbStopTimer){
-		// console.log(cell.state);
 		if(cell.state === 'hidden' && resetButton.state !== 'dead' && resetButton.state !== 'win'){
 			// if it's a mine, make reset button 'dead'
 			if(cell.contents === 'x'){
@@ -145,45 +144,36 @@ function MineField(){
 				// sweep if 0
 				this.sweepField(cell, cbUpdate$CellState, cbUpdate$CellContents);
 			}else{
-				// reveal if 0
+				// reveal if neither x nor 0
 				cell.changeState('revealed');
 				cbUpdate$CellState(cell);
 				cbUpdate$CellContents(cell);
 			}
-
+			// check all cells to determine if game has been won
 			if (resetButton.state !== 'dead'){
-				var won = true;
-				// var myMineFieldObj = this;
 				var checkIfWon = function(){
-					// console.log('ran');
 					for(var i in this.plot){
-						// console.log('ran');
 						for (var j in this.plot[i]){
 							// must reveal all non-mines in order to win
-							// console.log('ran');
 							if(this.plot[i][j].state !== 'revealed' && this.plot[i][j].contents !== 'x'){
-								console.log(j);
 								return false;
 							}
 						}
 					}
 					return true;
 				}
-				won = checkIfWon.call(this);
+				var won = checkIfWon.call(this);
 				if(won){
 					resetButton.state = 'win';
 				}
 			}
-			// check all cells to determine if game has won
 
-
-
-			// update reset button display after all cells have been rendered
 			// update timer (stop if dead or win)
 			if (resetButton.state === 'dead' || resetButton.state === 'win'){
 				cbStopTimer();
 			}
 
+			// update reset button display after all cells have been rendered
 			cbUpdate$ResetButtonState(resetButton.state);
 		}
 	}
@@ -305,8 +295,7 @@ function View(mineFieldString, resetButtonString, timerString){
 		$columns.css({
 			'width': total_width/columns,
 			'height': total_height/rows,
-			'font-size':0.037*(total_width/columns) + 'vw'
-			// 'line-height':'auto'
+			'font-size':0.034*(total_width/columns) + 'vw'
 		});
 	}
 
@@ -344,7 +333,6 @@ function Controller(mineField, resetButton, timer, view){
 		this.timer.stopTimer();
 		var cb = this.view.update$Timer.bind(this.view);
 		this.timer.startTimer(cb);
-		// this.view.update$Timer();
 	}
 
 	this.leftClickCell = function($clickedCell){
@@ -382,20 +370,14 @@ function theMain(){
 	var myTimer = new Timer();
 	var myDisplay = new View('#mineField', '#resetButton', '#timer');
 	var myController = new Controller(myMineField, myResetButton, myTimer, myDisplay);
-
+	// prompt player for size of minefield
 	var getRowsFromPlayer = prompt('How many rows do you want the field to have?', 20);
 	var getColumnsFromPlayer = prompt('How many columns do you want the field to have?', 30);
 	myMineField.rows = parseInt(getRowsFromPlayer);
 	myMineField.columns = parseInt(getColumnsFromPlayer);
-
+	// Start game!
 	myController.clickReset();
 
-	// timer
-	// var count = 0;
-	// myCounter = setInterval(function(){
-	// 	count++;
-	// 	myDisplay.update$Timer(count);
-	// }, 1000);
 	//// Event Listeners:
 
 	// left click cell 
@@ -404,7 +386,7 @@ function theMain(){
 		myController.leftClickCell.call(myController, $this);
 	});
 
-	// right click on a cell
+	// right click cell
 	myDisplay.$mineField.on('mousedown', '.column', function(event){
 		// check if event is a right click
 		if(event.which === 3){
